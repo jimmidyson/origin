@@ -67,7 +67,7 @@ func (t *JenkinsPipelineTemplate) Process() ([]resourceInfo, []error) {
 	return items, errors
 }
 
-// injectUserVars injects user specified variables into the Template
+// substituteTemplateParameters injects user specified parameter values into the Template
 func substituteTemplateParameters(params map[string]string, t *templateapi.Template) []error {
 	var errors []error
 	for name, value := range params {
@@ -136,7 +136,7 @@ func (t *JenkinsPipelineTemplate) hasJenkinsService(items []resourceInfo) bool {
 	return false
 }
 
-// jenkinsTemplateResourcesToMap converts the input runtime.Object provided by
+// mapJenkinsTemplateResources converts the input runtime.Object provided by
 // processed Jenkins template into a resource mappings ready for creation.
 func mapJenkinsTemplateResources(input []runtime.Object) ([]resourceInfo, []error) {
 	result := make([]resourceInfo, len(input))
