@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/origin/pkg/client"
 	serverapi "github.com/openshift/origin/pkg/cmd/server/api"
 	kapi "k8s.io/kubernetes/pkg/api"
+	kerrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/meta"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
@@ -43,7 +44,11 @@ func (t *JenkinsPipelineTemplate) Process() *JenkinsPipelineTemplate {
 	}
 	template, err := t.osClient.Templates(t.Config.Namespace).Get(t.Config.TemplateName)
 	if err != nil {
-		t.ProcessErrors = append(t.ProcessErrors, err)
+		if kerrs.IsNotFound(err) {
+			t.ProcessErrors = append(t.ProcessErrors, fmt.Errorf("Jenkins pipeline template %s/%s not found", t.Config.Namespace, t.Config.TemplateName))
+		} else {
+			t.ProcessErrors = append(t.ProcessErrors, err)
+		}
 		return t
 	}
 	// TODO: All parameters must have defaults here. Should we allow setting
