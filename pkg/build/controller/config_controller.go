@@ -76,12 +76,12 @@ func (c *BuildConfigController) HandleBuildConfig(bc *buildapi.BuildConfig) erro
 		if err != nil {
 			// Record all processing and creation failures as events.
 			for _, e := range jenkinsTemplate.Errors() {
-				c.Recorder.Eventf(bc, kapi.EventTypeWarning, "Failed", "%v", e)
+				c.Recorder.Eventf(bc, kapi.EventTypeWarning, "Failed", "Jenkins Pipeline error: %v", e)
 			}
 			return err
 		}
 
-		c.Recorder.Eventf(bc, kapi.EventTypeNormal, "Success", "Added new Jenkins service %q to project %q", svcName, bc.Namespace)
+		c.Recorder.Eventf(bc, kapi.EventTypeNormal, "Started", "Jenkins Pipeline service %q created", svcName)
 		return nil
 	}
 

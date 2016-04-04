@@ -7,6 +7,7 @@ import (
 	"github.com/openshift/origin/pkg/api/latest"
 	"github.com/openshift/origin/pkg/client"
 	serverapi "github.com/openshift/origin/pkg/cmd/server/api"
+	"github.com/openshift/origin/pkg/template"
 	kapi "k8s.io/kubernetes/pkg/api"
 	kerrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/meta"
@@ -42,7 +43,7 @@ func (t *JenkinsPipelineTemplate) Process() *JenkinsPipelineTemplate {
 	if len(t.items) > 0 {
 		return t
 	}
-	template, err := t.osClient.Templates(t.Config.Namespace).Get(t.Config.TemplateName)
+	jenkinsTemplate, err := t.osClient.Templates(t.Config.Namespace).Get(t.Config.TemplateName)
 	if err != nil {
 		if kerrs.IsNotFound(err) {
 			t.ProcessErrors = append(t.ProcessErrors, fmt.Errorf("Jenkins pipeline template %s/%s not found", t.Config.Namespace, t.Config.TemplateName))
@@ -51,9 +52,8 @@ func (t *JenkinsPipelineTemplate) Process() *JenkinsPipelineTemplate {
 		}
 		return t
 	}
-	// TODO: All parameters must have defaults here. Should we allow setting
-	// parameters in build strategy?
-	pTemplate, err := t.osClient.TemplateConfigs(t.TargetNamespace).Create(template)
+	t.ProcessErrors = append(t.ProcessErrors, substituteTemplateParameters(jenkinsTemplate)...)
+	pTemplate, err := t.osClient.TemplateConfigs(t.TargetNamespace).Create(jenkinsTemplate)
 	if err != nil {
 		t.ProcessErrors = append(t.ProcessErrors, fmt.Errorf("processing Jenkins template %s/%s failed: %v", t.Config.Namespace, t.Config.TemplateName, err))
 		return t
@@ -64,8 +64,27 @@ func (t *JenkinsPipelineTemplate) Process() *JenkinsPipelineTemplate {
 		t.ProcessErrors = append(t.ProcessErrors, mappingErrs...)
 		return t
 	}
-	glog.V(4).Infof("Processed Jenkins pipeline template %s/%s", pTemplate.Namespace, pTemplate.Namespace)
+	glog.V(4).Infof("Processed Jenkins pipeline jenkinsTemplate %s/%s", pTemplate.Namespace, pTemplate.Namespace)
 	return t
+}
+
+// injectUserVars injects user specified variables into the Template
+func substituteTemplateParameters(t *templateapi.Template) []error {
+	var errors []error
+	for name, value := range values {
+		if len(name) == 0 {
+			errors = append(errors, fmt.Errorf("template parameter name cannot be empty (%q)", value))
+			continue
+		}
+		if v := template.GetParameterByName(t, name); v != nil {
+			v.Value = value
+			v.Generate = ""
+			template.AddParameter(t, *v)
+		} else {
+			errors = append(errors, fmt.Errorf("unknown parameter %q specified for template", name))
+		}
+	}
+	return errors
 }
 
 // Instantiate instantiates the Jenkins template in the target namespace.
